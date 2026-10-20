@@ -63,6 +63,16 @@ export class AuthService {
     const cuenta = this.msalService.instance.getActiveAccount()
       ?? this.msalService.instance.getAllAccounts()[0];
     const roles = cuenta?.idTokenClaims?.['roles'];
-    return Array.isArray(roles) ? (roles as RolCampuslab[]) : [];
+    if (!Array.isArray(roles)) {
+      return [];
+    }
+    // Azure AD entrega los App Roles tal como se definieron ("Admin",
+    // "Tecnico", ...): se normalizan igual que en el BFF (mayusculas, sin
+    // acentos) para que coincidan con RolCampuslab.
+    return roles.map((r) => normalizarRol(String(r)) as RolCampuslab);
   }
+}
+
+export function normalizarRol(rol: string): string {
+  return rol.trim().normalize('NFD').replace(/\p{M}/gu, '').toUpperCase();
 }
