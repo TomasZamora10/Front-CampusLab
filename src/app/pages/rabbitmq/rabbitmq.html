@@ -1,0 +1,277 @@
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">RabbitMQ</h1>
+  <button class="btn btn-outline-secondary btn-sm" (click)="cargar()" [disabled]="cargando()">Actualizar</button>
+</div>
+
+@if (overview(); as o) {
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card"><div class="card-body py-2">
+        <div class="text-muted small">Versión</div>
+        <div class="fw-semibold">{{ o.rabbitmq_version }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card"><div class="card-body py-2">
+        <div class="text-muted small">Mensajes en colas</div>
+        <div class="fw-semibold">{{ o.queue_totals?.messages ?? 0 }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card"><div class="card-body py-2">
+        <div class="text-muted small">Sin confirmar (unacked)</div>
+        <div class="fw-semibold">{{ o.queue_totals?.messages_unacknowledged ?? 0 }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card"><div class="card-body py-2">
+        <div class="text-muted small">Consumidores</div>
+        <div class="fw-semibold">{{ o.object_totals?.consumers ?? 0 }}</div>
+      </div></div>
+    </div>
+  </div>
+}
+
+@if (error()) {
+  <div class="alert alert-danger">{{ error() }}</div>
+}
+@if (exito()) {
+  <div class="alert alert-success">{{ exito() }}</div>
+}
+
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <button class="nav-link" [class.active]="pestana() === 'colas'" (click)="cambiarPestana('colas')">
+      Colas <span class="badge text-bg-light border">{{ colas().length }}</span>
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" [class.active]="pestana() === 'exchanges'" (click)="cambiarPestana('exchanges')">
+      Exchanges <span class="badge text-bg-light border">{{ exchanges().length }}</span>
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" [class.active]="pestana() === 'bindings'" (click)="cambiarPestana('bindings')">
+      Bindings <span class="badge text-bg-light border">{{ bindings().length }}</span>
+    </button>
+  </li>
+</ul>
+
+@switch (pestana()) {
+  @case ('colas') {
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Nueva cola</h5>
+        <form (ngSubmit)="crearCola()">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label">Nombre</label>
+              <input class="form-control" required [(ngModel)]="nuevaCola.name" name="name" placeholder="q.ejemplo" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Dead-letter exchange</label>
+              <input class="form-control" [(ngModel)]="nuevaCola.deadLetterExchange" name="dlx" placeholder="cmd.dlx (opcional)" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">DL routing key</label>
+              <input class="form-control" [(ngModel)]="nuevaCola.deadLetterRoutingKey" name="dlrk" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">TTL (ms)</label>
+              <input class="form-control" type="number" min="1" [(ngModel)]="nuevaCola.messageTtl" name="ttl" />
+            </div>
+            <div class="col-md-2">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="durable" [(ngModel)]="nuevaCola.durable" name="durable" />
+                <label class="form-check-label" for="durable">Durable</label>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit" [disabled]="guardando()">Crear cola</button>
+        </form>
+      </div>
+    </div>
+
+    @if (cargando()) {
+      <p class="text-muted">Cargando...</p>
+    } @else {
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Estado</th>
+              <th class="text-end">Listos</th>
+              <th class="text-end">Sin confirmar</th>
+              <th class="text-end">Consumidores</th>
+              <th>DLX</th>
+              <th style="width: 190px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cola of colas(); track cola.name) {
+              <tr>
+                <td>
+                  {{ cola.name }}
+                  @if (cola.name.endsWith('.dlq') && (cola.messages ?? 0) > 0) {
+                    <span class="badge text-bg-warning ms-1">mensajes fallidos</span>
+                  }
+                </td>
+                <td><span class="badge text-bg-light border">{{ cola.state || '—' }}</span></td>
+                <td class="text-end">{{ cola.messages_ready ?? 0 }}</td>
+                <td class="text-end">{{ cola.messages_unacknowledged ?? 0 }}</td>
+                <td class="text-end">{{ cola.consumers ?? 0 }}</td>
+                <td class="small text-muted">{{ cola.arguments?.['x-dead-letter-exchange'] || '—' }}</td>
+                <td class="text-end">
+                  @if (confirmando() === 'cola:' + cola.name) {
+                    <button class="btn btn-danger btn-sm" (click)="eliminarCola(cola)" [disabled]="guardando()">Confirmar</button>
+                    <button class="btn btn-link btn-sm" (click)="cancelarConfirmacion()">Cancelar</button>
+                  } @else {
+                    <button class="btn btn-outline-danger btn-sm" (click)="pedirConfirmacion('cola:' + cola.name)">Eliminar</button>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="7" class="text-center text-muted">No hay colas.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted small">Solo se eliminan colas vacías. La topología de CampusLab (cmd.*, q.cmd.*) está protegida por el backend.</p>
+    }
+  }
+
+  @case ('exchanges') {
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Nuevo exchange</h5>
+        <form (ngSubmit)="crearExchange()">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">Nombre</label>
+              <input class="form-control" required [(ngModel)]="nuevoExchange.name" name="exName" placeholder="x.ejemplo" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tipo</label>
+              <select class="form-select" [(ngModel)]="nuevoExchange.type" name="exType">
+                <option value="direct">direct</option>
+                <option value="topic">topic</option>
+                <option value="fanout">fanout</option>
+                <option value="headers">headers</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="exDurable" [(ngModel)]="nuevoExchange.durable" name="exDurable" />
+                <label class="form-check-label" for="exDurable">Durable</label>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit" [disabled]="guardando()">Crear exchange</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>Durable</th>
+            <th style="width: 190px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ex of exchanges(); track ex.name) {
+            <tr>
+              <td>{{ ex.name }}</td>
+              <td><span class="badge text-bg-light border">{{ ex.type }}</span></td>
+              <td>{{ ex.durable ? 'Sí' : 'No' }}</td>
+              <td class="text-end">
+                @if (confirmando() === 'exchange:' + ex.name) {
+                  <button class="btn btn-danger btn-sm" (click)="eliminarExchange(ex)" [disabled]="guardando()">Confirmar</button>
+                  <button class="btn btn-link btn-sm" (click)="cancelarConfirmacion()">Cancelar</button>
+                } @else {
+                  <button class="btn btn-outline-danger btn-sm" (click)="pedirConfirmacion('exchange:' + ex.name)">Eliminar</button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4" class="text-center text-muted">No hay exchanges.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted small">Solo se eliminan exchanges sin bindings.</p>
+  }
+
+  @case ('bindings') {
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Nuevo binding</h5>
+        <form (ngSubmit)="crearBinding()">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">Exchange</label>
+              <select class="form-select" required [(ngModel)]="nuevoBinding.exchange" name="bEx">
+                <option value="" disabled>Selecciona...</option>
+                @for (ex of exchanges(); track ex.name) {
+                  <option [value]="ex.name">{{ ex.name }} ({{ ex.type }})</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Cola</label>
+              <select class="form-select" required [(ngModel)]="nuevoBinding.queue" name="bQueue">
+                <option value="" disabled>Selecciona...</option>
+                @for (cola of colas(); track cola.name) {
+                  <option [value]="cola.name">{{ cola.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Routing key</label>
+              <input class="form-control" [(ngModel)]="nuevoBinding.routingKey" name="bRk" placeholder="vacío para fanout" />
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit" [disabled]="guardando()">Crear binding</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Exchange</th>
+            <th>Destino</th>
+            <th>Routing key</th>
+            <th style="width: 190px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of bindings(); track claveBinding(b)) {
+            <tr>
+              <td>{{ b.source }}</td>
+              <td>{{ b.destination }} <span class="text-muted small">({{ b.destination_type }})</span></td>
+              <td><code>{{ b.routing_key || '(vacía)' }}</code></td>
+              <td class="text-end">
+                @if (b.destination_type === 'queue') {
+                  @if (confirmando() === claveBinding(b)) {
+                    <button class="btn btn-danger btn-sm" (click)="eliminarBinding(b)" [disabled]="guardando()">Confirmar</button>
+                    <button class="btn btn-link btn-sm" (click)="cancelarConfirmacion()">Cancelar</button>
+                  } @else {
+                    <button class="btn btn-outline-danger btn-sm" (click)="pedirConfirmacion(claveBinding(b))">Eliminar</button>
+                  }
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4" class="text-center text-muted">No hay bindings.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}

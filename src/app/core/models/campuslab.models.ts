@@ -79,3 +79,68 @@ export interface TopResource {
   recursoId: number;
   cantidadReservas: number;
 }
+
+// --- Administracion de RabbitMQ (ms-campuslab-rabbitmq-admin) ---
+// Los campos de respuesta usan snake_case tal como los entrega la
+// Management API de RabbitMQ (el microservicio los reenvia sin renombrar).
+
+export interface RabbitOverview {
+  rabbitmq_version: string;
+  cluster_name: string;
+  queue_totals?: { messages: number; messages_ready: number; messages_unacknowledged: number };
+  object_totals?: { queues: number; exchanges: number; connections: number; consumers: number };
+}
+
+export interface RabbitQueue {
+  name: string;
+  state?: string;
+  messages?: number;
+  messages_ready?: number;
+  messages_unacknowledged?: number;
+  consumers?: number;
+  durable?: boolean;
+  auto_delete?: boolean;
+  arguments?: Record<string, unknown>;
+}
+
+export interface RabbitExchange {
+  name: string;
+  type: string;
+  durable?: boolean;
+  auto_delete?: boolean;
+  internal?: boolean;
+}
+
+export interface RabbitBinding {
+  source: string;
+  destination: string;
+  destination_type: string;
+  routing_key: string;
+  properties_key?: string;
+}
+
+export type RabbitExchangeType = 'direct' | 'fanout' | 'topic' | 'headers';
+
+export interface QueueRequest {
+  name: string;
+  durable: boolean;
+  autoDelete?: boolean;
+  deadLetterExchange?: string;
+  deadLetterRoutingKey?: string;
+  messageTtl?: number;
+  maxLength?: number;
+}
+
+export interface ExchangeRequest {
+  name: string;
+  type: RabbitExchangeType;
+  durable: boolean;
+  autoDelete?: boolean;
+  internal?: boolean;
+}
+
+export interface BindingRequest {
+  exchange: string;
+  queue: string;
+  routingKey: string;
+}

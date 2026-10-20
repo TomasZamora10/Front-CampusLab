@@ -27,6 +27,10 @@ export class Api {
     return this.http.put<T>(`${this.baseUrl}${path}`, body);
   }
 
+  delete<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Observable<T> {
+    return this.http.delete<T>(`${this.baseUrl}${path}`, { params: this.aHttpParams(params) });
+  }
+
   private aHttpParams(params?: Record<string, string | number | boolean | undefined>): HttpParams {
     let httpParams = new HttpParams();
     if (!params) {
