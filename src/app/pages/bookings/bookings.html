@@ -1,5 +1,5 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0">Reservas</h1>
+  <h1 class="h3 mb-0">{{ esSoloEstudiante() ? 'Mis reservas' : 'Reservas' }}</h1>
   @if (puedeCrear()) {
     <button class="btn btn-primary btn-sm" (click)="abrirFormularioNuevo()">+ Nueva reserva</button>
   }
@@ -77,15 +77,30 @@
           <tr>
             <td>{{ reserva.id }}</td>
             <td>{{ nombreRecurso(reserva.recursoId) }}</td>
-            <td><span class="badge text-bg-light border">{{ reserva.estado }}</span></td>
+            <td>
+              <span class="badge text-bg-light border">{{ reserva.estado }}</span>
+              @if (reserva.estado === 'CANCELADA' && reserva.motivoCancelacion) {
+                <div class="small text-muted mt-1">Motivo: {{ reserva.motivoCancelacion }}</div>
+              }
+            </td>
             <td class="small">{{ reserva.fechaInicio | date: 'short' }}</td>
             <td class="small">{{ reserva.fechaFin | date: 'short' }}</td>
             <td>
               @if (cancelandoId() === reserva.id) {
-                <div class="input-group input-group-sm" style="max-width: 320px">
-                  <input class="form-control" placeholder="Motivo de cancelación" [(ngModel)]="motivoCancelacion" [ngModelOptions]="{standalone: true}" />
-                  <button class="btn btn-danger" [disabled]="!motivoCancelacion.trim()" (click)="confirmarCancelacion(reserva)">Confirmar</button>
-                  <button class="btn btn-outline-secondary" (click)="cancelarCancelacion()">×</button>
+                <div style="max-width: 360px">
+                  <label class="form-label small mb-1" [for]="'motivo-' + reserva.id">Justifica la cancelación *</label>
+                  <textarea class="form-control form-control-sm" rows="2" maxlength="500" [id]="'motivo-' + reserva.id"
+                    placeholder="Ej: Se reprogramó la práctica para la próxima semana"
+                    [(ngModel)]="motivoCancelacion" [ngModelOptions]="{standalone: true}"></textarea>
+                  <div class="d-flex justify-content-between align-items-center mt-1">
+                    <small [class.text-danger]="!motivoValido()" [class.text-muted]="motivoValido()">
+                      {{ motivoCancelacion.trim().length }}/{{ LARGO_MINIMO_MOTIVO }} caracteres mínimo
+                    </small>
+                    <span>
+                      <button class="btn btn-danger btn-sm" [disabled]="!motivoValido()" (click)="confirmarCancelacion(reserva)">Cancelar reserva</button>
+                      <button class="btn btn-link btn-sm" (click)="cancelarCancelacion()">Volver</button>
+                    </span>
+                  </div>
                 </div>
               } @else {
                 @for (destino of transicionesDisponibles(reserva); track destino) {

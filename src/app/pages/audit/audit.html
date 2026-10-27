@@ -1,48 +1,314 @@
-<h1 class="h3 mb-3">Auditoría</h1>
+<h1 class="h3 mb-3">Panel de auditoría</h1>
 
-<div class="mb-3 d-flex gap-2 align-items-end">
-  <div>
-    <label class="form-label">Filtrar por # de reserva</label>
-    <input class="form-control form-control-sm" type="number" min="1"
-      [(ngModel)]="filtroReservaId" (keyup.enter)="cargar()" placeholder="Ej: 42" />
-  </div>
-  <button class="btn btn-primary btn-sm" (click)="cargar()">Buscar</button>
-  <button class="btn btn-link btn-sm" (click)="limpiarFiltro()">Ver todo</button>
-</div>
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <button class="nav-link" [class.active]="pestana() === 'resumen'" (click)="cambiarPestana('resumen')">Resumen</button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" [class.active]="pestana() === 'eventos'" (click)="cambiarPestana('eventos')">Eventos</button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" [class.active]="pestana() === 'cancelaciones'" (click)="cambiarPestana('cancelaciones')">Cancelaciones</button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" [class.active]="pestana() === 'solicitudes'" (click)="cambiarPestana('solicitudes')">
+      {{ esAdmin() ? 'Solicitudes recibidas' : 'Solicitar información' }}
+    </button>
+  </li>
+</ul>
 
 @if (error()) {
   <div class="alert alert-danger">{{ error() }}</div>
 }
+@if (exito()) {
+  <div class="alert alert-success">{{ exito() }}</div>
+}
 
-@if (cargando()) {
-  <p class="text-muted">Cargando...</p>
-} @else {
-  <div class="table-responsive">
-    <table class="table table-striped table-sm align-middle">
-      <thead>
-        <tr>
-          <th>Fecha/hora</th>
-          <th>Evento</th>
-          <th>Reserva</th>
-          <th>Recurso</th>
-          <th>Estado</th>
-          <th>Event ID</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (entrada of entradas(); track entrada.id) {
-          <tr>
-            <td class="small">{{ entrada.eventTimestamp | date: 'short' }}</td>
-            <td><span class="badge text-bg-light border">{{ entrada.eventType }}</span></td>
-            <td>{{ entrada.reservaId }}</td>
-            <td>{{ entrada.recursoId ?? '—' }}</td>
-            <td>{{ entrada.estado ?? '—' }}</td>
-            <td class="small text-muted">{{ entrada.eventId }}</td>
-          </tr>
-        } @empty {
-          <tr><td colspan="6" class="text-center text-muted">Sin eventos de auditoría.</td></tr>
-        }
-      </tbody>
-    </table>
+<!-- ============================== RESUMEN ============================== -->
+@if (pestana() === 'resumen') {
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <span class="text-muted small">Periodo:</span>
+    @for (dias of [7, 30, 90]; track dias) {
+      <button class="btn btn-sm" [class.btn-primary]="diasResumen() === dias" [class.btn-outline-primary]="diasResumen() !== dias"
+        (click)="cambiarDiasResumen(dias)">Últimos {{ dias }} días</button>
+    }
   </div>
+
+  @if (resumen(); as r) {
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="card text-center h-100"><div class="card-body">
+          <div class="fs-3 fw-bold">{{ r.totalEventos }}</div><div class="text-muted small">Eventos registrados</div>
+        </div></div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card text-center h-100"><div class="card-body">
+          <div class="fs-3 fw-bold">{{ r.reservasInvolucradas }}</div><div class="text-muted small">Reservas involucradas</div>
+        </div></div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card text-center h-100"><div class="card-body">
+          <div class="fs-3 fw-bold">{{ cantidadDe('RESERVA_APROBADA') }}</div><div class="text-muted small">Aprobaciones</div>
+        </div></div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card text-center h-100"><div class="card-body">
+          <div class="fs-3 fw-bold">{{ cantidadDe('RESERVA_CANCELADA') }}</div><div class="text-muted small">Cancelaciones</div>
+        </div></div>
+      </div>
+    </div>
+
+    <h2 class="h5">Eventos por tipo</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Tipo</th><th class="text-end">Cantidad</th><th></th></tr></thead>
+        <tbody>
+          @for (fila of tiposDelResumen(); track fila.tipo) {
+            <tr>
+              <td>{{ TIPOS_DE_EVENTO[fila.tipo] ?? fila.tipo }}</td>
+              <td class="text-end">{{ fila.cantidad }}</td>
+              <td class="text-end">
+                <button class="btn btn-link btn-sm" (click)="filtros.eventType = fila.tipo; cambiarPestana('eventos')">Ver eventos</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="3" class="text-center text-muted">Sin eventos en el periodo.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="small text-muted">
+      Periodo: {{ r.desde | date: 'short' }} — {{ r.hasta | date: 'short' }}.
+      ¿Te falta algún dato?
+      <button class="btn btn-link btn-sm p-0 align-baseline" (click)="pedirInformacionSobre('OTRO')">Solicitar información</button>
+    </p>
+  } @else {
+    <p class="text-muted">Cargando resumen...</p>
+  }
+}
+
+<!-- ============================== EVENTOS ============================== -->
+@if (pestana() === 'eventos') {
+  <form class="row g-2 align-items-end mb-3" (ngSubmit)="buscarEventos(0)">
+    <div class="col-12 col-md-3">
+      <label class="form-label small">Tipo de evento</label>
+      <select class="form-select form-select-sm" [(ngModel)]="filtros.eventType" name="eventType">
+        <option value="">Todos</option>
+        @for (tipo of tiposDeEvento; track tipo) {
+          <option [value]="tipo">{{ TIPOS_DE_EVENTO[tipo] }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small"># Reserva</label>
+      <input class="form-control form-control-sm" type="number" min="1" [(ngModel)]="filtros.reservaId" name="reservaId" placeholder="Ej: 42" />
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small">Desde</label>
+      <input class="form-control form-control-sm" type="date" [(ngModel)]="filtros.desde" name="desde" />
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small">Hasta</label>
+      <input class="form-control form-control-sm" type="date" [(ngModel)]="filtros.hasta" name="hasta" />
+    </div>
+    <div class="col-6 col-md-3 d-flex gap-1">
+      <button class="btn btn-primary btn-sm" type="submit">Buscar</button>
+      <button class="btn btn-link btn-sm" type="button" (click)="limpiarFiltros()">Limpiar</button>
+      <button class="btn btn-outline-secondary btn-sm ms-auto" type="button" [disabled]="!entradas().length"
+        (click)="exportarCsv(entradas(), 'auditoria-eventos')">Exportar CSV</button>
+    </div>
+  </form>
+
+  @if (cargando()) {
+    <p class="text-muted">Cargando...</p>
+  } @else {
+    <div class="table-responsive">
+      <table class="table table-striped table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Fecha/hora</th><th>Evento</th><th>Reserva</th><th>Recurso</th><th>Usuario</th><th>Detalle</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (entrada of entradas(); track entrada.id) {
+            <tr>
+              <td class="small text-nowrap">{{ entrada.eventTimestamp | date: 'short' }}</td>
+              <td><span class="badge text-bg-light border">{{ TIPOS_DE_EVENTO[entrada.eventType] ?? entrada.eventType }}</span></td>
+              <td><button class="btn btn-link btn-sm p-0" title="Ver timeline" (click)="verTimeline(entrada.reservaId)">#{{ entrada.reservaId }}</button></td>
+              <td>{{ entrada.recursoId ?? '—' }}</td>
+              <td>{{ entrada.usuarioId ?? '—' }}</td>
+              <td class="small">{{ resumenDetalle(entrada) }}</td>
+              <td class="text-end">
+                <button class="btn btn-outline-secondary btn-sm text-nowrap" (click)="pedirInformacionSobre('RESERVAS', entrada.reservaId)">Pedir info</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="7" class="text-center text-muted">Sin eventos para los filtros elegidos.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (totalPaginas() > 1) {
+      <div class="d-flex gap-2 align-items-center">
+        <button class="btn btn-outline-secondary btn-sm" [disabled]="pagina() === 0" (click)="buscarEventos(pagina() - 1)">Anterior</button>
+        <span class="small text-muted">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
+        <button class="btn btn-outline-secondary btn-sm" [disabled]="pagina() + 1 >= totalPaginas()" (click)="buscarEventos(pagina() + 1)">Siguiente</button>
+      </div>
+    }
+  }
+}
+
+<!-- =========================== CANCELACIONES =========================== -->
+@if (pestana() === 'cancelaciones') {
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <p class="text-muted small mb-0">Toda cancelación exige una justificación de quien la hace.</p>
+    <button class="btn btn-outline-secondary btn-sm" [disabled]="!cancelaciones().length"
+      (click)="exportarCsv(cancelaciones(), 'auditoria-cancelaciones')">Exportar CSV</button>
+  </div>
+  @if (cargando()) {
+    <p class="text-muted">Cargando...</p>
+  } @else {
+    <div class="table-responsive">
+      <table class="table table-striped table-sm align-middle">
+        <thead><tr><th>Fecha/hora</th><th>Reserva</th><th>Recurso</th><th>Solicitante</th><th>Justificación</th><th></th></tr></thead>
+        <tbody>
+          @for (c of cancelaciones(); track c.id) {
+            <tr>
+              <td class="small text-nowrap">{{ c.eventTimestamp | date: 'short' }}</td>
+              <td><button class="btn btn-link btn-sm p-0" (click)="verTimeline(c.reservaId)">#{{ c.reservaId }}</button></td>
+              <td>{{ c.recursoId ?? '—' }}</td>
+              <td>{{ c.detalle?.['usuarioSolicitanteId'] ?? c.usuarioId ?? '—' }}</td>
+              <td class="small">{{ c.detalle?.['motivoCancelacion'] ?? '—' }}</td>
+              <td class="text-end">
+                <button class="btn btn-outline-secondary btn-sm text-nowrap" (click)="pedirInformacionSobre('CANCELACIONES', c.reservaId)">Pedir info</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="text-center text-muted">No hay cancelaciones registradas.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- ============================ SOLICITUDES ============================ -->
+@if (pestana() === 'solicitudes') {
+  @if (!esAdmin()) {
+    <div class="card mb-4">
+      <div class="card-body">
+        <h2 class="h5 card-title">Solicitar información</h2>
+        <p class="text-muted small">¿Te falta algún dato para tu auditoría? Descríbelo y un administrador te responderá aquí mismo.</p>
+        <form (ngSubmit)="enviarSolicitud()" novalidate>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label" for="categoria">Categoría *</label>
+              <select id="categoria" class="form-select" [class.is-invalid]="erroresFormulario()['categoria']"
+                [(ngModel)]="nuevaSolicitud.categoria" name="categoria">
+                <option value="">Elige...</option>
+                @for (c of categorias; track c) {
+                  <option [value]="c">{{ CATEGORIAS[c] }}</option>
+                }
+              </select>
+              <div class="invalid-feedback">{{ erroresFormulario()['categoria'] }}</div>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label" for="asunto">Asunto *</label>
+              <input id="asunto" class="form-control" maxlength="150" [class.is-invalid]="erroresFormulario()['asunto']"
+                [(ngModel)]="nuevaSolicitud.asunto" name="asunto" placeholder="Ej: Cancelaciones del laboratorio de química en octubre" />
+              <div class="invalid-feedback">{{ erroresFormulario()['asunto'] }}</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="descripcion">¿Qué información necesitas? *</label>
+              <textarea id="descripcion" class="form-control" rows="4" maxlength="2000"
+                [class.is-invalid]="erroresFormulario()['descripcion']"
+                [(ngModel)]="nuevaSolicitud.descripcion" name="descripcion"
+                placeholder="Indica qué datos faltan, para qué los necesitas y en qué formato te sirven."></textarea>
+              <div class="d-flex justify-content-between">
+                <div class="invalid-feedback d-block">{{ erroresFormulario()['descripcion'] }}</div>
+                <small class="text-muted text-nowrap">{{ nuevaSolicitud.descripcion.length }}/2000</small>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="reservaId"># Reserva (opcional)</label>
+              <input id="reservaId" class="form-control" type="number" min="1" [(ngModel)]="nuevaSolicitud.reservaId" name="reservaId" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="periodoDesde">Periodo desde (opcional)</label>
+              <input id="periodoDesde" class="form-control" type="date" [(ngModel)]="nuevaSolicitud.periodoDesde" name="periodoDesde" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="periodoHasta">Periodo hasta (opcional)</label>
+              <input id="periodoHasta" class="form-control" type="date" [class.is-invalid]="erroresFormulario()['periodoHasta']"
+                [(ngModel)]="nuevaSolicitud.periodoHasta" name="periodoHasta" />
+              <div class="invalid-feedback">{{ erroresFormulario()['periodoHasta'] }}</div>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-3" type="submit" [disabled]="enviando()">
+            {{ enviando() ? 'Enviando...' : 'Enviar solicitud' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  }
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+    <h2 class="h5 mb-0">{{ esAdmin() ? 'Solicitudes de los auditores' : 'Mis solicitudes' }}</h2>
+    @if (esAdmin()) {
+      <select class="form-select form-select-sm w-auto" [ngModel]="filtroEstadoSolicitud()" (ngModelChange)="cambiarFiltroSolicitudes($event)">
+        <option value="PENDIENTE">Pendientes</option>
+        <option value="RESPONDIDA">Respondidas</option>
+        <option value="RECHAZADA">Rechazadas</option>
+        <option value="">Todas</option>
+      </select>
+    }
+  </div>
+
+  @for (s of solicitudes(); track s.id) {
+    <div class="card mb-2">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+          <div>
+            <strong>#{{ s.id }} · {{ s.asunto }}</strong>
+            <div class="small text-muted">
+              {{ CATEGORIAS[s.categoria] }} · {{ s.creadaEn | date: 'short' }}
+              @if (esAdmin() && s.solicitanteNombre) { · {{ s.solicitanteNombre }} }
+              @if (s.reservaId) { · reserva #{{ s.reservaId }} }
+              @if (s.periodoDesde || s.periodoHasta) { · periodo {{ s.periodoDesde ?? '…' }} a {{ s.periodoHasta ?? '…' }} }
+            </div>
+          </div>
+          <span class="badge align-self-start" [class]="claseEstado(s.estado)">{{ s.estado }}</span>
+        </div>
+        <p class="mt-2 mb-2" style="white-space: pre-line">{{ s.descripcion }}</p>
+
+        @if (s.respuesta) {
+          <div class="border-start border-3 ps-3 py-1 bg-body-tertiary">
+            <div class="small text-muted">Respuesta de {{ s.respondidaPor }} · {{ s.respondidaEn | date: 'short' }}</div>
+            <div style="white-space: pre-line">{{ s.respuesta }}</div>
+          </div>
+        }
+
+        @if (esAdmin() && s.estado === 'PENDIENTE') {
+          @if (respondiendoId() === s.id) {
+            <div class="mt-2">
+              <textarea class="form-control mb-2" rows="3" maxlength="2000" placeholder="Respuesta para el auditor"
+                [(ngModel)]="respuesta.respuesta" [ngModelOptions]="{ standalone: true }"></textarea>
+              <div class="d-flex gap-2 align-items-center">
+                <select class="form-select form-select-sm w-auto" [(ngModel)]="respuesta.estado" [ngModelOptions]="{ standalone: true }">
+                  <option value="RESPONDIDA">Responder</option>
+                  <option value="RECHAZADA">Rechazar</option>
+                </select>
+                <button class="btn btn-primary btn-sm" [disabled]="!respuesta.respuesta.trim()" (click)="enviarRespuesta(s)">Enviar</button>
+                <button class="btn btn-link btn-sm" (click)="cancelarRespuesta()">Cancelar</button>
+              </div>
+            </div>
+          } @else {
+            <button class="btn btn-outline-primary btn-sm mt-1" (click)="abrirRespuesta(s)">Responder</button>
+          }
+        }
+      </div>
+    </div>
+  } @empty {
+    <p class="text-muted">{{ esAdmin() ? 'No hay solicitudes para este filtro.' : 'Aún no has enviado solicitudes.' }}</p>
+  }
 }

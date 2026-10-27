@@ -119,6 +119,26 @@ export class Rabbitmq implements OnInit {
     this.ejecutar(this.rabbit.eliminarCola(cola.name, true), `Cola ${cola.name} eliminada.`);
   }
 
+  /** Devuelve los mensajes de una DLQ a su cola de origen (una vez corregida la causa del fallo). */
+  reprocesarDlq(cola: RabbitQueue): void {
+    this.guardando.set(true);
+    this.error.set(null);
+    this.exito.set(null);
+    this.rabbit.reprocesarDlq(cola.name).subscribe({
+      next: (r) => {
+        this.guardando.set(false);
+        this.exito.set(r.devueltosALaDlq
+          ? `${r.reprocesados} mensajes reenviados; ${r.devueltosALaDlq} volvió a ${cola.name} porque su cola de origen no lo aceptó.`
+          : `${r.reprocesados} mensajes de ${cola.name} reenviados a su cola de origen.`);
+        this.cargar();
+      },
+      error: (err) => {
+        this.guardando.set(false);
+        this.error.set(this.mensajeError(err));
+      },
+    });
+  }
+
   eliminarExchange(exchange: RabbitExchange): void {
     this.ejecutar(this.rabbit.eliminarExchange(exchange.name, true), `Exchange ${exchange.name} eliminado.`);
   }

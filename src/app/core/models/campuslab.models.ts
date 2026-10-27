@@ -66,6 +66,49 @@ export interface AuditEntry {
   correlationId?: string;
   eventTimestamp: string;
   recibidoEn: string;
+  /** Payload del evento: aprobadoPor, fechaAprobacion, motivoCancelacion, fechas de la reserva... */
+  detalle?: Record<string, unknown>;
+}
+
+export interface ResumenAuditoria {
+  desde: string;
+  hasta: string;
+  totalEventos: number;
+  reservasInvolucradas: number;
+  eventosPorTipo: Record<string, number>;
+}
+
+export type CategoriaSolicitud = 'RESERVAS' | 'CANCELACIONES' | 'APROBACIONES' | 'INVENTARIO' | 'ACCESOS' | 'OTRO';
+export type EstadoSolicitud = 'PENDIENTE' | 'RESPONDIDA' | 'RECHAZADA';
+
+export interface SolicitudInformacionRequest {
+  categoria: CategoriaSolicitud | '';
+  asunto: string;
+  descripcion: string;
+  reservaId?: number | null;
+  periodoDesde?: string;
+  periodoHasta?: string;
+}
+
+export interface SolicitudInformacion {
+  id: number;
+  solicitanteNombre?: string;
+  categoria: CategoriaSolicitud;
+  asunto: string;
+  descripcion: string;
+  reservaId?: number;
+  periodoDesde?: string;
+  periodoHasta?: string;
+  estado: EstadoSolicitud;
+  respuesta?: string;
+  respondidaPor?: string;
+  creadaEn: string;
+  respondidaEn?: string;
+}
+
+export interface RespuestaSolicitud {
+  estado: Exclude<EstadoSolicitud, 'PENDIENTE'>;
+  respuesta: string;
 }
 
 export interface Kpis {

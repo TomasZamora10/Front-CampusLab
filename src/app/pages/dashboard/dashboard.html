@@ -1,24 +1,26 @@
 <h1 class="h3 mb-3">Bienvenido{{ auth.nombreUsuario() ? ', ' + auth.nombreUsuario() : '' }}</h1>
 
 <div class="row g-3 mb-4">
-  <div class="col-md-4">
-    <div class="card h-100">
-      <div class="card-body">
-        <h5 class="card-title">Catálogo</h5>
-        <p class="card-text text-muted">Laboratorios, equipos e insumos disponibles.</p>
-        <a routerLink="/catalog" class="btn btn-primary btn-sm">Ver catálogo</a>
+  @if (auth.tieneAlgunRol('ADMIN', 'TECNICO', 'ESTUDIANTE')) {
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">Catálogo</h5>
+          <p class="card-text text-muted">Laboratorios, equipos e insumos disponibles.</p>
+          <a routerLink="/catalog" class="btn btn-primary btn-sm">Ver catálogo</a>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card h-100">
-      <div class="card-body">
-        <h5 class="card-title">Reservas</h5>
-        <p class="card-text text-muted">Solicita o gestiona reservas de laboratorios/equipos.</p>
-        <a routerLink="/bookings" class="btn btn-primary btn-sm">Ver reservas</a>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">Reservas</h5>
+          <p class="card-text text-muted">Solicita o gestiona reservas de laboratorios/equipos.</p>
+          <a routerLink="/bookings" class="btn btn-primary btn-sm">Ver reservas</a>
+        </div>
       </div>
     </div>
-  </div>
+  }
   @if (auth.tieneAlgunRol('ADMIN', 'AUDITOR')) {
     <div class="col-md-4">
       <div class="card h-100">

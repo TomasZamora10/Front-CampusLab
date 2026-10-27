@@ -16,6 +16,12 @@ const TRANSICIONES: Record<EstadoReserva, EstadoReserva[]> = {
   CANCELADA: [],
 };
 
+/** El Estudiante solo cancela sus reservas (ms-campuslab-bookings lo exige igual). */
+const ESTADOS_DEL_ESTUDIANTE: EstadoReserva[] = ['CANCELADA'];
+
+/** Mismo minimo que ReservaServiceImpl.LARGO_MINIMO_MOTIVO_CANCELACION. */
+export const LARGO_MINIMO_MOTIVO = 10;
+
 const ETIQUETAS: Record<EstadoReserva, string> = {
   SOLICITADA: 'Solicitada',
   APROBADA: 'Aprobar',
@@ -56,12 +62,31 @@ export class Bookings implements OnInit {
     this.catalogService.listar().subscribe({ next: (r) => this.recursos.set(r) });
   }
 
+  readonly LARGO_MINIMO_MOTIVO = LARGO_MINIMO_MOTIVO;
+
   puedeCrear(): boolean {
     return this.auth.tieneAlgunRol('ADMIN', 'ESTUDIANTE');
   }
 
+  /** Estudiante sin rol de personal: el backend solo le devuelve sus propias reservas. */
+  esSoloEstudiante(): boolean {
+    return this.auth.tieneAlgunRol('ESTUDIANTE') && !this.auth.tieneAlgunRol('ADMIN', 'TECNICO');
+  }
+
+  motivoValido(): boolean {
+    return this.motivoCancelacion.trim().length >= LARGO_MINIMO_MOTIVO;
+  }
+
   transicionesDisponibles(reserva: Reserva): EstadoReserva[] {
-    return TRANSICIONES[reserva.estado] ?? [];
+    const posibles = TRANSICIONES[reserva.estado] ?? [];
+    if (this.auth.tieneAlgunRol('ADMIN', 'TECNICO')) {
+      return posibles;
+    }
+    // Aprobar/preparar/entregar/recibir es del Tecnico/Admin.
+    if (this.auth.tieneAlgunRol('ESTUDIANTE')) {
+      return posibles.filter((e) => ESTADOS_DEL_ESTUDIANTE.includes(e));
+    }
+    return [];
   }
 
   nombreRecurso(recursoId: number): string {
@@ -122,7 +147,7 @@ export class Bookings implements OnInit {
   }
 
   confirmarCancelacion(reserva: Reserva): void {
-    if (!this.motivoCancelacion.trim()) {
+    if (!this.motivoValido()) {
       return;
     }
     this.ejecutarTransicion(reserva.id, 'CANCELADA', this.motivoCancelacion.trim());
@@ -149,10 +174,12 @@ export class Bookings implements OnInit {
 
   private mensajeError(err: unknown): string {
     const status = (err as { status?: number })?.status;
-    const detalle = (err as { error?: { message?: string } })?.error?.message;
+    // ms-campuslab-bookings responde {"mensaje": ...} (ver su GlobalExceptionHandler).
+    const cuerpo = (err as { error?: { mensaje?: string; message?: string } })?.error;
+    const detalle = cuerpo?.mensaje ?? cuerpo?.message;
     if (status === 401) return 'Sesión expirada, vuelve a iniciar sesión.';
     if (status === 403) return 'No tienes permiso para esta acción.';
-    if (status === 400 && detalle) return detalle;
+    if ((status === 400 || status === 404 || status === 409) && detalle) return detalle;
     return 'No fue posible completar la operación.';
   }
 }

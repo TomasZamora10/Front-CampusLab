@@ -13,6 +13,7 @@ export function rolGuard(rolesPermitidos: RolCampuslab[]): CanActivateFn {
     const auth = inject(AuthService);
     const router = inject(Router);
 
+    auth.sincronizarConMsal();
     if (auth.tieneAlgunRol(...rolesPermitidos)) {
       return true;
     }

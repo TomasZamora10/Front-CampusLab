@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -10,4 +10,6 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class Navbar {
   protected readonly auth = inject(AuthService);
+  /** Menu colapsado en pantallas angostas (no se carga el JS de Bootstrap). */
+  protected readonly menuAbierto = signal(false);
 }

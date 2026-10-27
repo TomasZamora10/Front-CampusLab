@@ -33,6 +33,10 @@ export class RabbitmqAdminService {
     return this.api.delete<void>(`${this.base}/queues/${encodeURIComponent(nombre)}`, { ifEmpty: soloSiEstaVacia });
   }
 
+  reprocesarDlq(dlq: string): Observable<{ dlq: string; reprocesados: number; devueltosALaDlq: number }> {
+    return this.api.post(`${this.base}/queues/${encodeURIComponent(dlq)}/reprocesar`, {});
+  }
+
   exchanges(): Observable<RabbitExchange[]> {
     return this.api.get<RabbitExchange[]>(`${this.base}/exchanges`);
   }

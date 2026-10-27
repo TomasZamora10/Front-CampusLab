@@ -36,18 +36,26 @@ export class AuthService {
 
     this.msalBroadcastService.inProgress$
       .pipe(filter((status) => status === InteractionStatus.None))
-      .subscribe(() => {
-        const cuentas = this.msalService.instance.getAllAccounts();
-        this.isLoggedIn.set(cuentas.length > 0);
+      .subscribe(() => this.sincronizarConMsal());
+  }
 
-        if (cuentas.length > 0 && !this.msalService.instance.getActiveAccount()) {
-          this.msalService.instance.setActiveAccount(cuentas[0]);
-        }
+  /**
+   * Lee sesion y roles directamente de la cache de MSAL (sincrono). Lo usa
+   * tambien rolGuard: al recargar la pagina en /reports, /audit o
+   * /admin/rabbitmq el guard corre antes de que inProgress$ llegue a None,
+   * y sin esto veria los roles vacios y redirigiria a /dashboard.
+   */
+  sincronizarConMsal(): void {
+    const cuentas = this.msalService.instance.getAllAccounts();
+    this.isLoggedIn.set(cuentas.length > 0);
 
-        const cuentaActiva = this.msalService.instance.getActiveAccount() ?? cuentas[0] ?? null;
-        this.nombreUsuario.set((cuentaActiva?.name as string) ?? cuentaActiva?.username ?? null);
-        this.roles.set(this.leerRolesDeLaCuentaActiva());
-      });
+    if (cuentas.length > 0 && !this.msalService.instance.getActiveAccount()) {
+      this.msalService.instance.setActiveAccount(cuentas[0]);
+    }
+
+    const cuentaActiva = this.msalService.instance.getActiveAccount() ?? cuentas[0] ?? null;
+    this.nombreUsuario.set((cuentaActiva?.name as string) ?? cuentaActiva?.username ?? null);
+    this.roles.set(this.leerRolesDeLaCuentaActiva());
   }
 
   tieneAlgunRol(...rolesPermitidos: RolCampuslab[]): boolean {

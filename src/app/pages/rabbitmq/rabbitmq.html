@@ -122,7 +122,12 @@
                 <td class="text-end">{{ cola.messages_unacknowledged ?? 0 }}</td>
                 <td class="text-end">{{ cola.consumers ?? 0 }}</td>
                 <td class="small text-muted">{{ cola.arguments?.['x-dead-letter-exchange'] || '—' }}</td>
-                <td class="text-end">
+                <td class="text-end text-nowrap">
+                  @if (cola.name.endsWith('.dlq') && (cola.messages ?? 0) > 0 && confirmando() !== 'cola:' + cola.name) {
+                    <button class="btn btn-outline-primary btn-sm me-1" [disabled]="guardando()"
+                      title="Devuelve los mensajes a su cola de origen para que se procesen de nuevo"
+                      (click)="reprocesarDlq(cola)">Reprocesar</button>
+                  }
                   @if (confirmando() === 'cola:' + cola.name) {
                     <button class="btn btn-danger btn-sm" (click)="eliminarCola(cola)" [disabled]="guardando()">Confirmar</button>
                     <button class="btn btn-link btn-sm" (click)="cancelarConfirmacion()">Cancelar</button>
